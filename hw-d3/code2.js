@@ -85,6 +85,8 @@ d3.json("nations.json", function(nations) {
       .text(function(d) { return d.name; });
 
     // Start Paul's code
+    //
+    function lineKey(d) { return d[0].name }
     
     function intervalData(){
         // Get interpolated data at regular intervals
@@ -104,25 +106,44 @@ d3.json("nations.json", function(nations) {
         }
         return data;
     }
-    
+
     var lineData = intervalData();
+
+    function interpolateLineData(year){
+        var endIndex = Math.floor((year-1800)/9);
+        var current = interpolateData(year);
+        var out = []
+        for (var i=0;i<lineData.length;i++){
+            var c = lineData[i].slice(0,endIndex);
+            c.push(current[i]);
+            out.push(c);
+        }
+        return out;
+    }
+    
 
    var lineFunc = d3.svg.line()
         .x(function(d){ return xScale(x(d)); })
         .y(function(d){ return yScale(y(d)); })
         .interpolate("linear");
 
-   var oldDot = svg.append("g")
-      .attr("class", "olddots")
+   function drawLine(line){
+      line.attr("d", lineFunc)
+   }
+
+   var lines = svg.append("g")
+      .attr("class", "lines")
     .selectAll(".dot")
-      .data(lineData)
+      .data(interpolateLineData(1800))
     .enter().append("path")
-      .attr("class", "olddot")
+      .attr("class", "lines")
       .attr("opacity", .5)
       .style("fill", "none")
       .style("stroke", function(d) { return colorScale(color(d[0])); })
-      .attr("d", lineFunc)
-      .sort(order);
+      .call(drawLine);
+
+
+   console.log(interpolateLineData(1820));
 
    // end Paul's code
 
@@ -195,6 +216,7 @@ d3.json("nations.json", function(nations) {
   // Updates the display to show the specified year.
   function displayYear(year) {
     dot.data(interpolateData(year), key).call(position).sort(order);
+    lines.data(interpolateLineData(year), lineKey).call(drawLine);
     label.text(Math.round(year));
   }
 
