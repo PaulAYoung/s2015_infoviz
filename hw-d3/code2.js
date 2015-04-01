@@ -215,8 +215,8 @@ d3.json("nations.json", function(nations) {
 
   // Updates the display to show the specified year.
   function displayYear(year) {
-    dot.data(interpolateData(year), key).call(position).sort(order);
     lines.data(interpolateLineData(year), lineKey).call(drawLine);
+    dot.data(interpolateData(year), key).call(position).sort(order);
     label.text(Math.round(year));
   }
 
