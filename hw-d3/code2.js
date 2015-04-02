@@ -112,7 +112,7 @@ d3.json("nations.json", function(nations) {
     function interpolateLineData(year){
         var endIndex = Math.floor((year-1800)/9);
         var current = interpolateData(year);
-        var out = []
+        var out = [];
         for (var i=0;i<lineData.length;i++){
             var c = lineData[i].slice(0,endIndex);
             c.push(current[i]);
@@ -120,15 +120,34 @@ d3.json("nations.json", function(nations) {
         }
         return out;
     }
-    
 
    var lineFunc = d3.svg.line()
-        .x(function(d){ return xScale(x(d)); })
-        .y(function(d){ return yScale(y(d)); })
+        .x(function(d){ return d.x; })
+        .y(function(d){ return d.y; })
         .interpolate("linear");
 
-   function drawLine(line){
-      line.attr("d", lineFunc)
+   function drawArea(d){
+       var topLine = [];
+       var bottomLine = [];
+
+       for (var i=0;i<d.length;i++){
+           var endDex = d.length - (i+1);
+           topLine.push({
+               x: Math.round(xScale(x(d[i]))),
+               y: Math.round(yScale(y(d[i]))+radiusScale(radius(d[i])))
+           });
+           bottomLine.push({
+               x: Math.round(xScale(x(d[endDex]))),
+               y: Math.round(yScale(y(d[endDex]))-radiusScale(radius(d[endDex])))
+           });
+       }
+       topLine.push.apply(topLine, bottomLine);
+
+       return lineFunc(topLine);
+   }
+
+   function drawLines(line){
+       line.attr("d", drawArea);
    }
 
    var lines = svg.append("g")
@@ -138,12 +157,9 @@ d3.json("nations.json", function(nations) {
     .enter().append("path")
       .attr("class", "lines")
       .attr("opacity", .5)
-      .style("fill", "none")
       .style("stroke", function(d) { return colorScale(color(d[0])); })
-      .call(drawLine);
-
-
-   console.log(interpolateLineData(1820));
+      .style("fill", function(d) { return colorScale(color(d[0])); })
+      .call(drawLines);
 
    // end Paul's code
 
@@ -215,7 +231,7 @@ d3.json("nations.json", function(nations) {
 
   // Updates the display to show the specified year.
   function displayYear(year) {
-    lines.data(interpolateLineData(year), lineKey).call(drawLine);
+    lines.data(interpolateLineData(year), lineKey).call(drawLines);
     dot.data(interpolateData(year), key).call(position).sort(order);
     label.text(Math.round(year));
   }
