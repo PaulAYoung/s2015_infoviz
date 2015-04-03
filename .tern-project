@@ -1,6 +1,6 @@
 {
   "libs": [
-      "browser",
+      "browser"
     ],
   "loadEagerly": [
       "www/js/libs/*.js"
