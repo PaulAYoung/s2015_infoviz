@@ -108,7 +108,8 @@ d3.json("nations.json", function(nations) {
                      {return {val: +d.income, weight: +d.population}}),
                  lifeExpectancy: weightedMean(d, function(d)
                      {return {val: +d.lifeExpectancy, weight: +d.population}}),
-                 population: d3.sum(d, function(d) { return +d.population })
+                 population: d3.sum(d, function(d) { return +d.population }),
+                 year: d[0].year
              };
          })
          .entries(nations);
@@ -146,14 +147,24 @@ d3.json("nations.json", function(nations) {
 
     var lineData = regionData();
 
+    function dataBigrams(d){
+        //takes a list and returns pairs of items in list
+        // [1,2,3,4] -> [[1,2],[2,3],[3,4]]
+        var out = [];
+        for (var i=0;i<d.length-1;i++){
+            out.push([d[i], d[i+1]])
+        }
+        return out;
+    }
+
     function interpolateLineData(year){
-        var endIndex = Math.floor((year-1800)/9);
+        var endIndex = Math.floor((year-1800)/9)+1;
         var current = aggregateRegion(interpolateData(year));
         var out = [];
         for (region in lineData){
             var c = lineData[region].slice(0,endIndex);
             c.push(current[region]);
-            out.push(c);
+            out.push.apply(out, dataBigrams(c));
         }
         return out;
     }
@@ -166,7 +177,6 @@ d3.json("nations.json", function(nations) {
    function drawArea(d){
        var topLine = [];
        var bottomLine = [];
-       console.log(d);
 
        for (var i=0;i<d.length;i++){
            var endDex = d.length - (i+1);
@@ -185,20 +195,33 @@ d3.json("nations.json", function(nations) {
    }
 
    function drawLines(line){
-       line.attr("d", drawArea);
+        line
+        .attr("d", drawArea);
+   }
+    var regionGroup = svg.append("g")
+      .attr("id", "regionLines");
+
+
+   function updateRegions(year){
+    var d = interpolateLineData(year);
+    console.log(d);
+    var slices = d3.select("#regionLines")
+        .selectAll("path")
+        .data(d, function(d){return d[0].region + d[0].year;});
+
+    slices.enter().append("path");
+
+    slices.attr("class", "regionLines")
+        .attr("fill-opacity", .3)
+        .style("stroke", function(d) { return colorScale(color(d[0])); })
+        .style("stroke-opacity", 1)
+        .style("fill", function(d) { return colorScale(color(d[0])); })
+        .call(drawLines);
+
+    slices.exit().remove();
    }
 
-   var lines = svg.append("g")
-      .attr("class", "lines")
-    .selectAll(".dot")
-      .data(interpolateLineData(1800))
-    .enter().append("path")
-      .attr("class", "lines")
-      .attr("opacity", .5)
-      .style("stroke", function(d) { return colorScale(color(d[0])); })
-      .style("fill", function(d) { return colorScale(color(d[0])); })
-      .call(drawLines);
-
+   updateRegions(interpolateLineData(1800));
    // end Paul's code
 
   // Add an overlay for the year label.
@@ -269,7 +292,7 @@ d3.json("nations.json", function(nations) {
 
   // Updates the display to show the specified year.
   function displayYear(year) {
-    lines.data(interpolateLineData(year), lineKey).call(drawLines);
+    updateRegions(year);
     dot.data(interpolateData(year), key).call(position).sort(order);
     label.text(Math.round(year));
   }
