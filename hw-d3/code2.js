@@ -85,37 +85,74 @@ d3.json("nations.json", function(nations) {
       .text(function(d) { return d.name; });
 
     // Start Paul's code
-    //
-    function lineKey(d) { return d[0].name }
     
-    function intervalData(){
-        // Get interpolated data at regular intervals
-        var data = interpolateData(1800);
+    function lineKey(d) { return d[0].region }
 
-        for (var c=0;c<data.length;c++){
-                    data[c]=[data[c]];
-                }
+    function weightedMean(d, func){
+        var sum=0, div=0, vals;
+        for (var i=0;i<d.length;i++){
+            vals = func(d[i]);
+            if (vals.val === NaN || vals.weight === NaN){ continue; }
+            div += vals.weight;
+            sum += vals.val*vals.weight;
+        }
+        return sum/div
+    }
+
+    function aggregateRegion(nations){
+         var data = d3.nest()
+         .key(function(d) { return d.region; })
+         .rollup(function(d){
+             return {
+                 income: weightedMean(d, function(d)
+                     {return {val: +d.income, weight: +d.population}}),
+                 lifeExpectancy: weightedMean(d, function(d)
+                     {return {val: +d.lifeExpectancy, weight: +d.population}}),
+                 population: d3.sum(d, function(d) { return +d.population })
+             };
+         })
+         .entries(nations);
+
+         for (var i=0; i<data.length;i++){
+             for (k in data[i].values){
+                 data[i][k]=data[i].values[k];
+                 data[i]["region"] = data[i].key;
+             }
+         }
+
+         return data;
+    }
+
+   
+    function regionData(){
+        // Get interpolated data at regular intervals
+        var data = aggregateRegion(interpolateData(1800));
+
+        for (var region in data){
+            data[region]=[data[region]];
+        }
 
         var year;
         for (var y=0;y<21;y++){
             year = 1809 + (y*10);
-            newData = interpolateData(year);
-            for (var c=0;c<newData.length;c++){
-                data[c].push(newData[c]);
+            newData = aggregateRegion(interpolateData(year));
+            for (region in data){
+                data[region].push(newData[region]);
             }
         }
+
         return data;
     }
 
-    var lineData = intervalData();
+    var lineData = regionData();
 
     function interpolateLineData(year){
         var endIndex = Math.floor((year-1800)/9);
-        var current = interpolateData(year);
+        var current = aggregateRegion(interpolateData(year));
         var out = [];
-        for (var i=0;i<lineData.length;i++){
-            var c = lineData[i].slice(0,endIndex);
-            c.push(current[i]);
+        for (region in lineData){
+            var c = lineData[region].slice(0,endIndex);
+            c.push(current[region]);
             out.push(c);
         }
         return out;
@@ -129,6 +166,7 @@ d3.json("nations.json", function(nations) {
    function drawArea(d){
        var topLine = [];
        var bottomLine = [];
+       console.log(d);
 
        for (var i=0;i<d.length;i++){
            var endDex = d.length - (i+1);
