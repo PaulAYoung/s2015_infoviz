@@ -179,7 +179,7 @@ d3.json("nations.json", function(nations) {
            var endDex = d.length - (i+1);
            topLine.push({
                x: Math.round(xScale(x(d[i]))),
-               y: Math.round(yScale(y(d[i]))+radiusScale(radius(d[i])))
+               y: Math.round(yScale(y(d[i])))
            });
            bottomLine.push({
                x: Math.round(xScale(x(d[endDex]))),
@@ -201,15 +201,18 @@ d3.json("nations.json", function(nations) {
 
    function updateRegions(year){
     var d = interpolateLineData(year);
-    console.log(d);
     var slices = d3.select("#regionLines")
         .selectAll("path")
         .data(d, function(d){return d[0].region + d[0].year;});
 
     slices.enter().append("path");
 
+    var yearOpacity = d3.scale.linear()
+        .domain([1799, year])
+        .range([.1, .8]);
+
     slices.attr("class", "regionLines")
-        .attr("fill-opacity", .3)
+        .attr("fill-opacity", function(d){return yearOpacity(d[1].year);})
         .style("stroke", function(d) { return colorScale(color(d[0])); })
         .style("stroke-opacity", 1)
         .style("fill", function(d) { return colorScale(color(d[0])); })
