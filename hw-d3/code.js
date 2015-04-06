@@ -84,6 +84,143 @@ d3.json("nations.json", function(nations) {
   dot.append("title")
       .text(function(d) { return d.name; });
 
+    // Start Paul's code
+    function weightedMean(d, func){
+        var sum=0, div=0, vals;
+        for (var i=0;i<d.length;i++){
+            vals = func(d[i]);
+            if (vals.val === NaN || vals.weight === NaN){ continue; }
+            div += vals.weight;
+            sum += vals.val*vals.weight;
+        }
+        return sum/div
+    }
+
+    function aggregateRegion(nations){
+         var data = d3.nest()
+         .key(function(d) { return d.region; })
+         .rollup(function(d){
+             return {
+                 income: weightedMean(d, function(d)
+                     {return {val: +d.income, weight: +d.population}}),
+                 lifeExpectancy: weightedMean(d, function(d)
+                     {return {val: +d.lifeExpectancy, weight: +d.population}}),
+                 population: d3.sum(d, function(d) { return +d.population }),
+                 year: d[0].year
+             };
+         })
+         .entries(nations);
+
+         for (var i=0; i<data.length;i++){
+             for (k in data[i].values){
+                 data[i][k]=data[i].values[k];
+                 data[i]["region"] = data[i].key;
+             }
+         }
+
+         return data;
+    }
+
+   
+    function regionData(){
+        // Get interpolated data at regular intervals
+        var data = aggregateRegion(interpolateData(1800));
+
+        for (var region in data){
+            data[region]=[data[region]];
+        }
+
+        var year;
+        for (var y=0;y<21;y++){
+            year = 1809 + (y*10);
+            newData = aggregateRegion(interpolateData(year));
+            for (region in data){
+                data[region].push(newData[region]);
+            }
+        }
+
+        return data;
+    }
+
+    var lineData = regionData();
+
+    function dataBigrams(d){
+        //takes a list and returns pairs of items in list
+        // [1,2,3,4] -> [[1,2],[2,3],[3,4]]
+        var out = [];
+        for (var i=0;i<d.length-1;i++){
+            out.push([d[i], d[i+1]])
+        }
+        return out;
+    }
+
+    function interpolateLineData(year){
+        var endIndex = Math.floor((year-1800)/10)+1;
+        var current = aggregateRegion(interpolateData(year));
+        var out = [];
+        for (region in lineData){
+            var c = lineData[region].slice(0,endIndex);
+            c.push(current[region]);
+            out.push.apply(out, dataBigrams(c));
+        }
+        return out;
+    }
+
+   var lineFunc = d3.svg.line()
+        .x(function(d){ return d.x; })
+        .y(function(d){ return d.y; })
+        .interpolate("linear");
+
+   function drawArea(d){
+       var topLine = [];
+       var bottomLine = [];
+
+       for (var i=0;i<d.length;i++){
+           var endDex = d.length - (i+1);
+           topLine.push({
+               x: Math.round(xScale(x(d[i]))),
+               y: Math.round(yScale(y(d[i]))+radiusScale(radius(d[i])))
+           });
+           bottomLine.push({
+               x: Math.round(xScale(x(d[endDex]))),
+               y: Math.round(yScale(y(d[endDex]))-radiusScale(radius(d[endDex])))
+           });
+       }
+       topLine.push.apply(topLine, bottomLine);
+
+       return lineFunc(topLine);
+   }
+
+   function drawLines(line){
+        line
+        .attr("d", drawArea);
+   }
+    var regionGroup = svg.append("g")
+      .attr("id", "regionLines");
+
+
+   function updateRegions(year){
+    var d = interpolateLineData(year);
+    console.log(d);
+    var slices = d3.select("#regionLines")
+        .selectAll("path")
+        .data(d, function(d){return d[0].region + d[0].year;});
+
+    slices.enter().append("path");
+
+    slices.attr("class", "regionLines")
+        .attr("fill-opacity", .3)
+        .style("stroke", function(d) { return colorScale(color(d[0])); })
+        .style("stroke-opacity", 1)
+        .style("fill", function(d) { return colorScale(color(d[0])); })
+        .call(drawLines);
+
+    slices.exit().remove();
+   }
+
+   updateRegions(interpolateLineData(1800));
+   // end Paul's code
+
   // Add an overlay for the year label.
   var box = label.node().getBBox();
 
@@ -152,6 +289,7 @@ d3.json("nations.json", function(nations) {
 
   // Updates the display to show the specified year.
   function displayYear(year) {
+    updateRegions(year);
     dot.data(interpolateData(year), key).call(position).sort(order);
     label.text(Math.round(year));
   }
@@ -163,6 +301,7 @@ d3.json("nations.json", function(nations) {
         name: d.name,
         region: d.region,
         income: interpolateValues(d.income, year),
+        year: year,
         population: interpolateValues(d.population, year),
         lifeExpectancy: interpolateValues(d.lifeExpectancy, year)
       };
